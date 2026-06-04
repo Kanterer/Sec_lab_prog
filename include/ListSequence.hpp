@@ -1,9 +1,7 @@
 #ifndef LIST_SEQUENCE_HPP
 #define LIST_SEQUENCE_HPP
-
 #include "LinkedList.hpp"
 #include "Sequence.hpp"
-
 #include <functional>
 
 template <class T>
