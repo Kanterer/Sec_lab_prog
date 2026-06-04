@@ -1,6 +1,5 @@
 #ifndef SEQUENCE_HPP
 #define SEQUENCE_HPP
-
 #include <functional>
 
 template <class T>
