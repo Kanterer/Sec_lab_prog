@@ -1,10 +1,8 @@
 #include "UI.hpp"
-
 #include "ArraySequence.hpp"
 #include "BitSequence.hpp"
 #include "ListSequence.hpp"
 #include "Sequence.hpp"
-
 #include <iostream>
 #include <limits>
 #include <memory>
