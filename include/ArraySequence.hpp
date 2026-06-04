@@ -1,9 +1,7 @@
 #ifndef ARRAY_SEQUENCE_HPP
 #define ARRAY_SEQUENCE_HPP
-
 #include "DynamicArray.hpp"
 #include "Sequence.hpp"
-
 #include <functional>
 #include <string>
 
