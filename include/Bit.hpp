@@ -1,6 +1,5 @@
 #ifndef BIT_HPP
 #define BIT_HPP
-
 #include <iostream>
 #include <stdexcept>
 
