@@ -1,6 +1,5 @@
 #ifndef EXCEPTIONS_HPP
 #define EXCEPTIONS_HPP
-
 #include <stdexcept>
 #include <string>
 
