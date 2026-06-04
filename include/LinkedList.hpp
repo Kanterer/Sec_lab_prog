@@ -1,8 +1,6 @@
 #ifndef LINKED_LIST_HPP
 #define LINKED_LIST_HPP
-
 #include "Exceptions.hpp"
-
 #include <string>
 #include <utility>
 
