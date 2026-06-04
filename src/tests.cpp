@@ -1,11 +1,9 @@
 #include "Test.hpp"
-
 #include "ArraySequence.hpp"
 #include "BitSequence.hpp"
 #include "DynamicArray.hpp"
 #include "LinkedList.hpp"
 #include "ListSequence.hpp"
-
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
