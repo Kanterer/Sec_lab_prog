@@ -1,10 +1,8 @@
 #ifndef BIT_SEQUENCE_HPP
 #define BIT_SEQUENCE_HPP
-
 #include "ArraySequence.hpp"
 #include "Bit.hpp"
 #include "Exceptions.hpp"
-
 #include <string>
 
 class BitSequence : public ArraySequence<Bit> {
