@@ -1,8 +1,6 @@
 #ifndef DYNAMIC_ARRAY_HPP
 #define DYNAMIC_ARRAY_HPP
-
 #include "Exceptions.hpp"
-
 #include <algorithm>
 #include <string>
 #include <utility>
