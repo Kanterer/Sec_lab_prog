@@ -1,6 +1,6 @@
 #ifndef UI_HPP
 #define UI_HPP
 
-void RunConsoleInterface();
+void RunUI();
 
 #endif
