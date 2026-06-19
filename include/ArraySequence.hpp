@@ -1,231 +1,356 @@
 #ifndef ARRAY_SEQUENCE_HPP
 #define ARRAY_SEQUENCE_HPP
+
 #include "DynamicArray.hpp"
 #include "Sequence.hpp"
-#include <functional>
-#include <string>
 
 template <class T>
-class ArraySequence : public Sequence<T> {
+class MutableArraySequence;
+
+template <class T>
+class ImmutableArraySequence;
+
+template <class T, class Derived>
+class ArraySequence : public Sequence<T, Derived> {
 protected:
-    DynamicArray<T>* items;
+    DynamicArray<T> items;
 
-    void AppendInternal(const T& item) {
-        const int size = items->GetSize();
-        items->Resize(size + 1);
-        items->Set(size, item);
+    Derived* SelfDerived() {
+        return static_cast<Derived*>(this);
     }
 
-    void PrependInternal(const T& item) {
-        const int size = items->GetSize();
-        items->Resize(size + 1);
-        for (int i = size; i > 0; --i) {
-            items->Set(i, items->Get(i - 1));
-        }
-        items->Set(0, item);
+    const Derived* SelfDerived() const {
+        return static_cast<const Derived*>(this);
     }
 
-    void InsertAtInternal(const T& item, int index) {
-        const int size = items->GetSize();
-        if (index < 0 || index > size) {
-            throw IndexOutOfRange("ArraySequence: insert index is out of range");
-        }
-        if (index == size) {
-            AppendInternal(item);
-            return;
-        }
+    void AppendInternal(T item) {
+        int oldSize = items.GetSize();
 
-        items->Resize(size + 1);
-        for (int i = size; i > index; --i) {
-            items->Set(i, items->Get(i - 1));
-        }
-        items->Set(index, item);
+        items.Resize(oldSize + 1);
+        items.Set(oldSize, item);
     }
 
-    virtual ArraySequence<T>* InstanceForChange() {
-        return this;
+    void PrependInternal(T item) {
+        int oldSize = items.GetSize();
+
+        items.Resize(oldSize + 1);
+
+        for (int i = oldSize; i > 0; --i) {
+            items.Set(i, items.Get(i - 1));
+        }
+
+        items.Set(0, item);
     }
 
-    virtual ArraySequence<T>* CreateEmpty() const {
-        return new ArraySequence<T>();
+    void InsertAtInternal(T item, int index) {
+        if (index < 0 || index > items.GetSize()) {
+            throw IndexOutOfRangeException("insert index is outside ArraySequence bounds");
+        }
+
+        int oldSize = items.GetSize();
+
+        items.Resize(oldSize + 1);
+
+        for (int i = oldSize; i > index; --i) {
+            items.Set(i, items.Get(i - 1));
+        }
+
+        items.Set(index, item);
     }
 
 public:
-    ArraySequence()
-        : items(new DynamicArray<T>()) {}
-
-    ArraySequence(const T* sourceItems, int count)
-        : items(new DynamicArray<T>(sourceItems, count)) {}
-
-    explicit ArraySequence(const DynamicArray<T>& dynamicArray)
-        : items(new DynamicArray<T>(dynamicArray)) {}
-
-    ArraySequence(const ArraySequence<T>& other)
-        : items(new DynamicArray<T>(*other.items)) {}
-
-    ArraySequence<T>& operator=(const ArraySequence<T>& other) {
-        if (this == &other) {
-            return *this;
-        }
-        delete items;
-        items = new DynamicArray<T>(*other.items);
-        return *this;
+    void SetExistingItem(int index, T item) {
+        items.Set(index, item);
     }
 
-    ~ArraySequence() override {
-        delete items;
-    }
-
-    T GetFirst() const override {
-        if (items->GetSize() == 0) {
-            throw IndexOutOfRange("ArraySequence: sequence is empty");
-        }
-        return items->Get(0);
-    }
-
-    T GetLast() const override {
-        const int size = items->GetSize();
-        if (size == 0) {
-            throw IndexOutOfRange("ArraySequence: sequence is empty");
-        }
-        return items->Get(size - 1);
-    }
-
-    T Get(int index) const override {
-        return items->Get(index);
-    }
-
-    int GetLength() const override {
-        return items->GetSize();
-    }
-
-    Sequence<T>* GetSubsequence(int startIndex, int endIndex) const override {
-        const int size = items->GetSize();
-        if (startIndex < 0 || endIndex < 0 || startIndex > endIndex || endIndex >= size) {
-            throw IndexOutOfRange("ArraySequence: invalid subsequence indexes");
-        }
-
-        ArraySequence<T>* result = CreateEmpty();
-        for (int i = startIndex; i <= endIndex; ++i) {
-            result->AppendInternal(items->Get(i));
-        }
-        return result;
-    }
-
-    Sequence<T>* Append(const T& item) override {
-        ArraySequence<T>* result = InstanceForChange();
-        result->AppendInternal(item);
-        return result;
-    }
-
-    Sequence<T>* Prepend(const T& item) override {
-        ArraySequence<T>* result = InstanceForChange();
-        result->PrependInternal(item);
-        return result;
-    }
-
-    Sequence<T>* InsertAt(const T& item, int index) override {
-        ArraySequence<T>* result = InstanceForChange();
-        result->InsertAtInternal(item, index);
-        return result;
-    }
-
-    Sequence<T>* Concat(const Sequence<T>& sequence) override {
-        ArraySequence<T>* result = InstanceForChange();
-        const int sourceLength = sequence.GetLength();
-        for (int i = 0; i < sourceLength; ++i) {
-            result->AppendInternal(sequence.Get(i));
-        }
-        return result;
-    }
-
-    Sequence<T>* Map(const std::function<T(const T&)>& function) const override {
-        ArraySequence<T>* result = CreateEmpty();
-        for (int i = 0; i < GetLength(); ++i) {
-            result->AppendInternal(function(Get(i)));
-        }
-        return result;
-    }
-
-    Sequence<T>* Where(const std::function<bool(const T&)>& predicate) const override {
-        ArraySequence<T>* result = CreateEmpty();
-        for (int i = 0; i < GetLength(); ++i) {
-            T value = Get(i);
-            if (predicate(value)) {
-                result->AppendInternal(value);
-            }
-        }
-        return result;
-    }
-
-    T Reduce(const std::function<T(const T&, const T&)>& function, const T& startValue) const override {
-        T result = startValue;
-        for (int i = 0; i < GetLength(); ++i) {
-            result = function(result, Get(i));
-        }
-        return result;
-    }
-
-    Sequence<T>* Clone() const override {
-        return new ArraySequence<T>(*this);
-    }
-};
-
-template <class T>
-class MutableArraySequence : public ArraySequence<T> {
 protected:
-    ArraySequence<T>* InstanceForChange() override {
-        return this;
+    static int NormalizeSliceStart(int startIndex, int length) {
+        int normalizedStart = startIndex;
+
+        if (normalizedStart < 0) {
+            normalizedStart = length + normalizedStart;
+        }
+
+        return normalizedStart;
     }
 
-    ArraySequence<T>* CreateEmpty() const override {
+    static void ValidateSliceRange(int normalizedStart, int count, int length) {
+        if (count < 0) {
+            throw InvalidArgumentException("slice count cannot be negative");
+        }
+
+        if (normalizedStart < 0 || normalizedStart > length) {
+            throw IndexOutOfRangeException("slice start index is outside sequence bounds");
+        }
+
+        if (normalizedStart + count > length) {
+            throw IndexOutOfRangeException("slice removes more elements than sequence contains");
+        }
+    }
+
+public:
+    ArraySequence() : items() {}
+
+    ArraySequence(T* inputItems, int count) : items(inputItems, count) {}
+
+    explicit ArraySequence(const DynamicArray<T>& array) : items(array) {}
+
+    ArraySequence(const ArraySequence<T, Derived>& other) : items(other.items) {}
+
+    T GetFirstImpl() const {
+        if (items.GetSize() == 0) {
+            throw EmptySequenceException("cannot get first item from empty ArraySequence");
+        }
+
+        return items.Get(0);
+    }
+
+    T GetLastImpl() const {
+        if (items.GetSize() == 0) {
+            throw EmptySequenceException("cannot get last item from empty ArraySequence");
+        }
+
+        return items.Get(items.GetSize() - 1);
+    }
+
+    T GetImpl(int index) const {
+        return items.Get(index);
+    }
+
+    MutableArraySequence<T>* GetSubsequenceImpl(int startIndex, int endIndex) const {
+        int length = items.GetSize();
+
+        if (startIndex < 0 || startIndex >= length || endIndex < 0 || endIndex >= length) {
+            throw IndexOutOfRangeException("subsequence boundaries are outside ArraySequence bounds");
+        }
+
+        if (startIndex > endIndex) {
+            throw InvalidArgumentException("startIndex cannot be greater than endIndex");
+        }
+
+        int resultLength = endIndex - startIndex + 1;
+        MutableArraySequence<T>* result = new MutableArraySequence<T>(resultLength);
+
+        for (int i = 0; i < resultLength; ++i) {
+            result->SetExistingItem(i, items.Get(startIndex + i));
+        }
+
+        return result;
+    }
+
+    int GetLengthImpl() const {
+        return items.GetSize();
+    }
+
+    Derived* AppendImpl(T item) {
+        Derived* target = SelfDerived()->Instance();
+
+        target->AppendInternal(item);
+
+        return target;
+    }
+
+    Derived* PrependImpl(T item) {
+        Derived* target = SelfDerived()->Instance();
+
+        target->PrependInternal(item);
+
+        return target;
+    }
+
+    Derived* InsertAtImpl(T item, int index) {
+        Derived* target = SelfDerived()->Instance();
+
+        target->InsertAtInternal(item, index);
+
+        return target;
+    }
+
+    template <class OtherDerived>
+    Derived* ConcatImpl(const OtherDerived& sequence) {
+        Derived* target = SelfDerived()->Instance();
+
+        int oldLength = target->items.GetSize();
+        int otherLength = sequence.GetLength();
+
+        target->items.Resize(oldLength + otherLength);
+
+        for (int i = 0; i < otherLength; ++i) {
+            target->items.Set(oldLength + i, sequence.Get(i));
+        }
+
+        return target;
+    }
+
+    T& operator[](int index) {
+        return items[index];
+    }
+
+    const T& operator[](int index) const {
+        return items[index];
+    }
+
+    MutableArraySequence<T>* EmptyMutableImpl() const {
         return new MutableArraySequence<T>();
     }
 
-public:
-    MutableArraySequence()
-        : ArraySequence<T>() {}
+    MutableArraySequence<T>* MapImpl(T (*mapper)(const T&)) const {
+        int length = items.GetSize();
+        MutableArraySequence<T>* result = new MutableArraySequence<T>(length);
 
-    MutableArraySequence(const T* items, int count)
-        : ArraySequence<T>(items, count) {}
+        for (int i = 0; i < length; ++i) {
+            result->SetExistingItem(i, mapper(items.Get(i)));
+        }
 
-    explicit MutableArraySequence(const DynamicArray<T>& array)
-        : ArraySequence<T>(array) {}
+        return result;
+    }
 
-    MutableArraySequence(const MutableArraySequence<T>& other)
-        : ArraySequence<T>(other) {}
+    MutableArraySequence<T>* MapIndexedImpl(T (*mapper)(const T&, int)) const {
+        int length = items.GetSize();
+        MutableArraySequence<T>* result = new MutableArraySequence<T>(length);
 
-    Sequence<T>* Clone() const override {
-        return new MutableArraySequence<T>(*this);
+        for (int i = 0; i < length; ++i) {
+            result->SetExistingItem(i, mapper(items.Get(i), i));
+        }
+
+        return result;
+    }
+
+    MutableArraySequence<T>* WhereImpl(bool (*predicate)(const T&)) const {
+        int length = items.GetSize();
+        int count = 0;
+
+        for (int i = 0; i < length; ++i) {
+            if (predicate(items.Get(i))) {
+                ++count;
+            }
+        }
+
+        MutableArraySequence<T>* result = new MutableArraySequence<T>(count);
+        int resultIndex = 0;
+
+        for (int i = 0; i < length; ++i) {
+            T item = items.Get(i);
+
+            if (predicate(item)) {
+                result->SetExistingItem(resultIndex, item);
+                ++resultIndex;
+            }
+        }
+
+        return result;
+    }
+
+    MutableArraySequence<T>* SliceWithoutReplacementImpl(int startIndex, int count) const {
+        int length = items.GetSize();
+        int normalizedStart = NormalizeSliceStart(startIndex, length);
+
+        ValidateSliceRange(normalizedStart, count, length);
+
+        int resultLength = length - count;
+        MutableArraySequence<T>* result = new MutableArraySequence<T>(resultLength);
+        int resultIndex = 0;
+
+        for (int i = 0; i < normalizedStart; ++i) {
+            result->SetExistingItem(resultIndex, items.Get(i));
+            ++resultIndex;
+        }
+
+        for (int i = normalizedStart + count; i < length; ++i) {
+            result->SetExistingItem(resultIndex, items.Get(i));
+            ++resultIndex;
+        }
+
+        return result;
+    }
+
+    template <class ReplacementDerived>
+    MutableArraySequence<T>* SliceImpl(int startIndex, int count, const ReplacementDerived* replacement) const {
+        int length = items.GetSize();
+        int replacementLength = replacement == nullptr ? 0 : replacement->GetLength();
+        int normalizedStart = NormalizeSliceStart(startIndex, length);
+
+        ValidateSliceRange(normalizedStart, count, length);
+
+        int resultLength = length - count + replacementLength;
+        MutableArraySequence<T>* result = new MutableArraySequence<T>(resultLength);
+        int resultIndex = 0;
+
+        for (int i = 0; i < normalizedStart; ++i) {
+            result->SetExistingItem(resultIndex, items.Get(i));
+            ++resultIndex;
+        }
+
+        if (replacement != nullptr) {
+            for (int i = 0; i < replacementLength; ++i) {
+                result->SetExistingItem(resultIndex, replacement->Get(i));
+                ++resultIndex;
+            }
+        }
+
+        for (int i = normalizedStart + count; i < length; ++i) {
+            result->SetExistingItem(resultIndex, items.Get(i));
+            ++resultIndex;
+        }
+
+        return result;
     }
 };
 
 template <class T>
-class ImmutableArraySequence : public ArraySequence<T> {
-protected:
-    ArraySequence<T>* InstanceForChange() override {
-        return new ImmutableArraySequence<T>(*this);
-    }
-
-    ArraySequence<T>* CreateEmpty() const override {
-        return new ImmutableArraySequence<T>();
-    }
-
+class MutableArraySequence : public ArraySequence<T, MutableArraySequence<T>> {
 public:
-    ImmutableArraySequence()
-        : ArraySequence<T>() {}
+    MutableArraySequence() : ArraySequence<T, MutableArraySequence<T>>() {}
 
-    ImmutableArraySequence(const T* items, int count)
-        : ArraySequence<T>(items, count) {}
+    explicit MutableArraySequence(int size)
+        : ArraySequence<T, MutableArraySequence<T>>(DynamicArray<T>(size)) {}
+
+    MutableArraySequence(T* items, int count)
+        : ArraySequence<T, MutableArraySequence<T>>(items, count) {}
+
+    explicit MutableArraySequence(const DynamicArray<T>& array)
+        : ArraySequence<T, MutableArraySequence<T>>(array) {}
+
+    MutableArraySequence(const MutableArraySequence<T>& other)
+        : ArraySequence<T, MutableArraySequence<T>>(other) {}
+
+    MutableArraySequence<T>* Instance() {
+        return this;
+    }
+
+    MutableArraySequence<T>* CloneImpl() const {
+        return new MutableArraySequence<T>(*this);
+    }
+
+    bool IsMutableImpl() const {
+        return true;
+    }
+};
+
+template <class T>
+class ImmutableArraySequence : public ArraySequence<T, ImmutableArraySequence<T>> {
+public:
+    ImmutableArraySequence() : ArraySequence<T, ImmutableArraySequence<T>>() {}
+
+    ImmutableArraySequence(T* items, int count)
+        : ArraySequence<T, ImmutableArraySequence<T>>(items, count) {}
 
     explicit ImmutableArraySequence(const DynamicArray<T>& array)
-        : ArraySequence<T>(array) {}
+        : ArraySequence<T, ImmutableArraySequence<T>>(array) {}
 
     ImmutableArraySequence(const ImmutableArraySequence<T>& other)
-        : ArraySequence<T>(other) {}
+        : ArraySequence<T, ImmutableArraySequence<T>>(other) {}
 
-    Sequence<T>* Clone() const override {
+    ImmutableArraySequence<T>* Instance() {
         return new ImmutableArraySequence<T>(*this);
+    }
+
+    ImmutableArraySequence<T>* CloneImpl() const {
+        return new ImmutableArraySequence<T>(*this);
+    }
+
+    bool IsMutableImpl() const {
+        return false;
     }
 };
 
