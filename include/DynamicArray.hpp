@@ -1,59 +1,154 @@
 #ifndef DYNAMIC_ARRAY_HPP
 #define DYNAMIC_ARRAY_HPP
+
 #include "Exceptions.hpp"
-#include <algorithm>
-#include <string>
-#include <utility>
 
 template <class T>
 class DynamicArray {
 private:
     T* data;
     int size;
+    int capacity;
 
-    void CheckIndex(int index) const {
+    void ValidateIndex(int index) const {
         if (index < 0 || index >= size) {
-            throw IndexOutOfRange("DynamicArray: index is out of range: " + std::to_string(index));
+            throw IndexOutOfRangeException("index is outside array bounds");
+        }
+    }
+
+    void Reallocate(int newCapacity) {
+        T* newData = newCapacity == 0 ? nullptr : new T[newCapacity]{};
+
+        int itemsToCopy = size < newCapacity ? size : newCapacity;
+
+        for (int i = 0; i < itemsToCopy; ++i) {
+            newData[i] = data[i];
+        }
+
+        delete[] data;
+
+        data = newData;
+        capacity = newCapacity;
+
+        if (size > capacity) {
+            size = capacity;
+        }
+    }
+
+    void EnsureCapacity(int requiredCapacity) {
+        if (requiredCapacity <= capacity) {
+            return;
+        }
+
+        int newCapacity = capacity == 0 ? 1 : capacity;
+
+        while (newCapacity < requiredCapacity) {
+            newCapacity *= 2;
+        }
+
+        Reallocate(newCapacity);
+    }
+
+    void ShrinkIfTooMuchExtraMemory() {
+        if (size == 0) {
+            delete[] data;
+            data = nullptr;
+            capacity = 0;
+            return;
+        }
+
+        if (capacity > 4 && size * 4 <= capacity) {
+            int newCapacity = capacity / 2;
+
+            if (newCapacity < size) {
+                newCapacity = size;
+            }
+
+            Reallocate(newCapacity);
         }
     }
 
 public:
-    DynamicArray()
-        : data(nullptr), size(0) {}
+    DynamicArray() : data(nullptr), size(0), capacity(0) {}
 
-    explicit DynamicArray(int newSize)
-        : data(nullptr), size(newSize) {
-        if (newSize < 0) {
-            throw NegativeSizeException("DynamicArray: size cannot be negative");
+    DynamicArray(T* items, int count) : data(nullptr), size(0), capacity(0) {
+        if (count < 0) {
+            throw InvalidArgumentException("array size cannot be negative");
         }
-        if (newSize > 0) {
-            data = new T[newSize];
-        }
-    }
 
-    DynamicArray(const T* items, int count)
-        : DynamicArray(count) {
         if (count > 0 && items == nullptr) {
-            throw std::invalid_argument("DynamicArray: items pointer is null");
+            throw InvalidArgumentException("source array is null while count is positive");
         }
-        for (int i = 0; i < count; ++i) {
+
+        size = count;
+        capacity = count;
+        data = capacity == 0 ? nullptr : new T[capacity]{};
+
+        for (int i = 0; i < size; ++i) {
             data[i] = items[i];
         }
     }
 
-    DynamicArray(const DynamicArray<T>& other)
-        : DynamicArray(other.size) {
+    explicit DynamicArray(int size) : data(nullptr), size(0), capacity(0) {
+        if (size < 0) {
+            throw InvalidArgumentException("array size cannot be negative");
+        }
+
+        this->size = size;
+        capacity = size;
+        data = capacity == 0 ? nullptr : new T[capacity]{};
+    }
+
+    DynamicArray(const DynamicArray<T>& other) : data(nullptr), size(other.size), capacity(other.size) {
+        data = capacity == 0 ? nullptr : new T[capacity]{};
+
         for (int i = 0; i < size; ++i) {
             data[i] = other.data[i];
         }
+    }
+
+    DynamicArray(DynamicArray<T>&& other) noexcept
+        : data(other.data), size(other.size), capacity(other.capacity) {
+        other.data = nullptr;
+        other.size = 0;
+        other.capacity = 0;
     }
 
     DynamicArray<T>& operator=(const DynamicArray<T>& other) {
         if (this == &other) {
             return *this;
         }
-        DynamicArray<T> copy(other);
-        Swap(copy);
+
+        T* newData = other.size == 0 ? nullptr : new T[other.size]{};
+
+        for (int i = 0; i < other.size; ++i) {
+            newData[i] = other.data[i];
+        }
+
+        delete[] data;
+
+        data = newData;
+        size = other.size;
+        capacity = other.size;
+
+        return *this;
+    }
+
+    DynamicArray<T>& operator=(DynamicArray<T>&& other) noexcept {
+        if (this == &other) {
+            return *this;
+        }
+
+        delete[] data;
+
+        data = other.data;
+        size = other.size;
+        capacity = other.capacity;
+
+        other.data = nullptr;
+        other.size = 0;
+        other.capacity = 0;
+
         return *this;
     }
 
@@ -61,51 +156,71 @@ public:
         delete[] data;
     }
 
-    void Swap(DynamicArray<T>& other) noexcept {
-        std::swap(data, other.data);
-        std::swap(size, other.size);
+    T Get(int index) const {
+        ValidateIndex(index);
+
+        return data[index];
     }
 
     int GetSize() const {
         return size;
     }
 
-    T Get(int index) const {
-        CheckIndex(index);
-        return data[index];
+    int GetCapacity() const {
+        return capacity;
     }
 
-    void Set(int index, const T& value) {
-        CheckIndex(index);
+    void Set(int index, T value) {
+        ValidateIndex(index);
+
         data[index] = value;
     }
 
     void Resize(int newSize) {
         if (newSize < 0) {
-            throw NegativeSizeException("DynamicArray: size cannot be negative");
+            throw InvalidArgumentException("new array size cannot be negative");
         }
 
-        T* newData = nullptr;
-        if (newSize > 0) {
-            newData = new T[newSize];
-            const int countToCopy = std::min(size, newSize);
-            for (int i = 0; i < countToCopy; ++i) {
-                newData[i] = data[i];
+        int oldSize = size;
+
+        if (newSize == 0) {
+            delete[] data;
+            data = nullptr;
+            size = 0;
+            capacity = 0;
+            return;
+        }
+
+        EnsureCapacity(newSize);
+
+        if (newSize > oldSize) {
+            for (int i = oldSize; i < newSize; ++i) {
+                data[i] = T{};
             }
         }
 
-        delete[] data;
-        data = newData;
         size = newSize;
+
+        if (newSize < oldSize) {
+            ShrinkIfTooMuchExtraMemory();
+        }
+    }
+
+    void ShrinkToFit() {
+        if (capacity != size) {
+            Reallocate(size);
+        }
     }
 
     T& operator[](int index) {
-        CheckIndex(index);
+        ValidateIndex(index);
+
         return data[index];
     }
 
     const T& operator[](int index) const {
-        CheckIndex(index);
+        ValidateIndex(index);
+
         return data[index];
     }
 };
