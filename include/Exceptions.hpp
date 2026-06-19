@@ -1,18 +1,38 @@
 #ifndef EXCEPTIONS_HPP
 #define EXCEPTIONS_HPP
-#include <stdexcept>
-#include <string>
 
-class IndexOutOfRange : public std::out_of_range {
+#include <exception>
+
+class LabException : public std::exception {
+private:
+    const char* message;
+
 public:
-    explicit IndexOutOfRange(const std::string& message)
-        : std::out_of_range(message) {}
+    explicit LabException(const char* message) : message(message) {}
+
+    const char* what() const noexcept override {
+        return message;
+    }
 };
 
-class NegativeSizeException : public std::invalid_argument {
+class IndexOutOfRangeException : public LabException {
 public:
-    explicit NegativeSizeException(const std::string& message)
-        : std::invalid_argument(message) {}
+    explicit IndexOutOfRangeException(const char* details) : LabException(details) {}
+};
+
+class EmptySequenceException : public LabException {
+public:
+    explicit EmptySequenceException(const char* details) : LabException(details) {}
+};
+
+class InvalidArgumentException : public LabException {
+public:
+    explicit InvalidArgumentException(const char* details) : LabException(details) {}
+};
+
+class OptionHasNoValueException : public LabException {
+public:
+    explicit OptionHasNoValueException(const char* details) : LabException(details) {}
 };
 
 #endif
