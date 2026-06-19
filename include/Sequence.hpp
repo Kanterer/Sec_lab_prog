@@ -1,29 +1,166 @@
 #ifndef SEQUENCE_HPP
 #define SEQUENCE_HPP
-#include <functional>
 
-template <class T>
+#include "Exceptions.hpp"
+#include "Option.hpp"
+
+template <class T, class Derived>
 class Sequence {
+private:
+    Derived& Self() {
+        return static_cast<Derived&>(*this);
+    }
+
+    const Derived& Self() const {
+        return static_cast<const Derived&>(*this);
+    }
+
 public:
-    virtual ~Sequence() = default;
+    T GetFirst() const {
+        return Self().GetFirstImpl();
+    }
 
-    virtual T GetFirst() const = 0;
-    virtual T GetLast() const = 0;
-    virtual T Get(int index) const = 0;
-    virtual int GetLength() const = 0;
+    T GetLast() const {
+        return Self().GetLastImpl();
+    }
 
-    virtual Sequence<T>* GetSubsequence(int startIndex, int endIndex) const = 0;
+    T Get(int index) const {
+        return Self().GetImpl(index);
+    }
 
-    virtual Sequence<T>* Append(const T& item) = 0;
-    virtual Sequence<T>* Prepend(const T& item) = 0;
-    virtual Sequence<T>* InsertAt(const T& item, int index) = 0;
-    virtual Sequence<T>* Concat(const Sequence<T>& sequence) = 0;
+    auto GetSubsequence(int startIndex, int endIndex) const {
+        return Self().GetSubsequenceImpl(startIndex, endIndex);
+    }
 
-    virtual Sequence<T>* Map(const std::function<T(const T&)>& function) const = 0;
-    virtual Sequence<T>* Where(const std::function<bool(const T&)>& predicate) const = 0;
-    virtual T Reduce(const std::function<T(const T&, const T&)>& function, const T& startValue) const = 0;
+    int GetLength() const {
+        return Self().GetLengthImpl();
+    }
 
-    virtual Sequence<T>* Clone() const = 0;
+    auto Append(T item) {
+        return Self().AppendImpl(item);
+    }
+
+    auto Prepend(T item) {
+        return Self().PrependImpl(item);
+    }
+
+    auto InsertAt(T item, int index) {
+        return Self().InsertAtImpl(item, index);
+    }
+
+    template <class OtherDerived>
+    auto Concat(const Sequence<T, OtherDerived>& sequence) {
+        return Self().ConcatImpl(static_cast<const OtherDerived&>(sequence));
+    }
+
+    auto Clone() const {
+        return Self().CloneImpl();
+    }
+
+    auto EmptyMutable() const {
+        return Self().EmptyMutableImpl();
+    }
+
+    bool IsMutable() const {
+        return Self().IsMutableImpl();
+    }
+
+    T operator[](int index) const {
+        return Get(index);
+    }
+
+    auto Map(T (*mapper)(const T&)) const {
+        if (mapper == nullptr) {
+            throw InvalidArgumentException("mapper function is null");
+        }
+
+        return Self().MapImpl(mapper);
+    }
+
+    auto MapIndexed(T (*mapper)(const T&, int)) const {
+        if (mapper == nullptr) {
+            throw InvalidArgumentException("mapper function is null");
+        }
+
+        return Self().MapIndexedImpl(mapper);
+    }
+
+    auto Where(bool (*predicate)(const T&)) const {
+        if (predicate == nullptr) {
+            throw InvalidArgumentException("predicate function is null");
+        }
+
+        return Self().WhereImpl(predicate);
+    }
+
+    template <class R>
+    R Reduce(R (*reducer)(const R&, const T&), R initial) const {
+        if (reducer == nullptr) {
+            throw InvalidArgumentException("reducer function is null");
+        }
+
+        R accumulator = initial;
+        int length = GetLength();
+
+        for (int i = 0; i < length; ++i) {
+            accumulator = reducer(accumulator, Get(i));
+        }
+
+        return accumulator;
+    }
+
+    Option<T> TryGetFirst(bool (*predicate)(const T&) = nullptr) const {
+        int length = GetLength();
+
+        if (length == 0) {
+            return Option<T>::None();
+        }
+
+        if (predicate == nullptr) {
+            return Option<T>::Some(GetFirst());
+        }
+
+        for (int i = 0; i < length; ++i) {
+            T item = Get(i);
+
+            if (predicate(item)) {
+                return Option<T>::Some(item);
+            }
+        }
+
+        return Option<T>::None();
+    }
+
+    Option<T> TryGetLast(bool (*predicate)(const T&) = nullptr) const {
+        int length = GetLength();
+
+        if (length == 0) {
+            return Option<T>::None();
+        }
+
+        if (predicate == nullptr) {
+            return Option<T>::Some(GetLast());
+        }
+
+        for (int i = length - 1; i >= 0; --i) {
+            T item = Get(i);
+
+            if (predicate(item)) {
+                return Option<T>::Some(item);
+            }
+        }
+
+        return Option<T>::None();
+    }
+
+    auto Slice(int startIndex, int count) const {
+        return Self().SliceWithoutReplacementImpl(startIndex, count);
+    }
+
+    template <class ReplacementDerived>
+    auto Slice(int startIndex, int count, const Sequence<T, ReplacementDerived>* replacement) const {
+        return Self().SliceImpl(startIndex, count, static_cast<const ReplacementDerived*>(replacement));
+    }
 };
 
 #endif
